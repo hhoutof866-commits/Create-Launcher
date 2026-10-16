@@ -1,0 +1,22 @@
+{
+  "username": "Player",
+  "game_dir": "C:\\Users\\user\\Documents\\Проект по умолчанию\\neoforge-launcher\\.minecraft",
+  "ram_mb": 6144,
+  "java_path": "",
+  "jvm_args": "",
+  "mc_version": "1.21.1",
+  "mode": "neoforge",
+  "neoforge_version": "21.1.262",
+  "skip_sounds": false,
+  "download_workers": 8,
+  "skin_model": "wide",
+  "content_type": "mod",
+  "content_create_only": true,
+  "content_query": "Create",
+  "enable_resource_packs": true,
+  "last_world": "",
+  "close_launcher_on_start": false,
+  "keep_console": true,
+  "width": 0,
+  "height": 0
+}
