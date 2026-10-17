@@ -1,7 +1,8 @@
 """Оформление интерфейса: тёмная минималистичная тема.
 
-Принципы: приглушённые цвета (ничего не «светит»), один акцентный цвет — зелёный,
-минимум рамок и объёмных элементов, ровные поверхности вместо коробочек.
+Принципы: приглушённые цвета (ничего не «светит»), один акцентный цвет —
+фиолетовый, минимум рамок и объёмных элементов, ровные поверхности вместо
+коробочек.
 """
 
 from __future__ import annotations
@@ -13,23 +14,23 @@ from core import png
 FONT = "Segoe UI"
 
 COLORS = {
-    "bg": "#15171c",           # фон окна
-    "card": "#1c1f26",         # поверхность карточек
-    "card_alt": "#22262e",     # поверхность второго уровня (шапки таблиц и т.п.)
-    "hover": "#272c35",        # наведение
-    "border": "#2b3039",       # тонкие границы
-    "text": "#d6d9df",         # основной текст (не чистый белый — мягче)
-    "text_strong": "#eceef1",
-    "muted": "#7e8792",        # второстепенный текст
-    "accent": "#4e7d54",       # приглушённый зелёный
-    "accent_active": "#5b8f62",
-    "accent_soft": "#232d25",  # фон выбранной строки
-    "accent_text": "#8fbf97",  # акцентный текст
-    "console_bg": "#0f1115",
-    "console_fg": "#bfc5ce",
-    "field": "#20242c",        # фон полей ввода
-    "field_border": "#2f343d",
-    "disabled": "#4a505a",
+    "bg": "#16131e",           # фон окна (тёмный, с фиолетовым отливом)
+    "card": "#1e1a2a",         # поверхность карточек
+    "card_alt": "#262033",     # поверхность второго уровня (шапки таблиц и т.п.)
+    "hover": "#2b2438",        # наведение
+    "border": "#312a44",       # тонкие границы
+    "text": "#d9d4e2",         # основной текст (не чистый белый — мягче)
+    "text_strong": "#efecf5",
+    "muted": "#8b819a",        # второстепенный текст
+    "accent": "#6f55c8",       # приглушённый фиолетовый
+    "accent_active": "#8065db",
+    "accent_soft": "#2b2344",  # фон выбранной строки
+    "accent_text": "#b6a3ee",  # акцентный текст
+    "console_bg": "#110e18",
+    "console_fg": "#c3bdd0",
+    "field": "#221d30",        # фон полей ввода
+    "field_border": "#332c47",
+    "disabled": "#544c63",
 }
 
 
@@ -52,6 +53,7 @@ def setup(style) -> None:
     style.configure("Title.TLabel", font=(FONT, 15, "bold"), foreground=COLORS["text_strong"])
     style.configure("Sub.TLabel", foreground=COLORS["muted"], font=(FONT, 9))
     style.configure("Muted.TLabel", foreground=COLORS["muted"], font=(FONT, 9))
+    style.configure("Kicker.TLabel", foreground=COLORS["text_strong"], font=(FONT, 10, "bold"))
     style.configure("H1.TLabel", font=(FONT, 10, "bold"), foreground=COLORS["text"])
     style.configure("Stage.TLabel", foreground=COLORS["accent_text"], font=(FONT, 10, "bold"))
 
@@ -78,15 +80,25 @@ def setup(style) -> None:
               lightcolor=[("active", COLORS["hover"])],
               darkcolor=[("active", COLORS["hover"])],
               foreground=[("disabled", COLORS["disabled"])])
-    style.configure("Accent.TButton", background=COLORS["accent"], foreground="#f0f4f0",
+    style.configure("Accent.TButton", background=COLORS["accent"], foreground="#f6f3ff",
                     font=(FONT, 12, "bold"), padding=(12, 12), borderwidth=0,
                     lightcolor=COLORS["accent"], darkcolor=COLORS["accent"])
     style.map("Accent.TButton",
               background=[("active", COLORS["accent_active"]), ("pressed", COLORS["accent_active"]),
-                          ("disabled", "#2c3a2e")],
-              lightcolor=[("active", COLORS["accent_active"]), ("disabled", "#2c3a2e")],
-              darkcolor=[("active", COLORS["accent_active"]), ("disabled", "#2c3a2e")],
-              foreground=[("disabled", "#6d7a6f")])
+                          ("disabled", "#312a4d")],
+              lightcolor=[("active", COLORS["accent_active"]), ("disabled", "#312a4d")],
+              darkcolor=[("active", COLORS["accent_active"]), ("disabled", "#312a4d")],
+              foreground=[("disabled", "#7a7292")])
+    # большая кнопка «ИГРАТЬ» на баннере
+    style.configure("Play.TButton", background=COLORS["accent"], foreground="#f8f5ff",
+                    font=(FONT, 14, "bold"), padding=(54, 12), borderwidth=0,
+                    lightcolor=COLORS["accent"], darkcolor=COLORS["accent"])
+    style.map("Play.TButton",
+              background=[("active", COLORS["accent_active"]), ("pressed", COLORS["accent_active"]),
+                          ("disabled", "#37305c")],
+              lightcolor=[("active", COLORS["accent_active"]), ("disabled", "#37305c")],
+              darkcolor=[("active", COLORS["accent_active"]), ("disabled", "#37305c")],
+              foreground=[("disabled", "#8a83a5")])
     style.configure("Small.TButton", padding=(8, 4), font=(FONT, 9))
 
     # --- поля и переключатели
@@ -123,11 +135,11 @@ def setup(style) -> None:
                     borderwidth=0, thickness=8)
     for orient in ("Vertical", "Horizontal"):
         name = "%s.TScrollbar" % orient
-        style.configure(name, background="#2c313a", troughcolor=COLORS["bg"],
+        style.configure(name, background="#2e2740", troughcolor=COLORS["bg"],
                         bordercolor=COLORS["bg"], arrowcolor=COLORS["muted"],
-                        lightcolor="#343a44", darkcolor="#22262e", borderwidth=0,
+                        lightcolor="#372f4c", darkcolor="#241f33", borderwidth=0,
                         arrowsize=12, relief="flat")
-        style.map(name, background=[("active", "#3a4150")])
+        style.map(name, background=[("active", "#3d3455")])
 
     # --- ползунок ОЗУ: скопировать раскладку под имя с ориентацией
     for orient in ("Horizontal", "Vertical"):
@@ -149,7 +161,7 @@ def setup_option_db(root) -> None:
         root.option_add(pattern + ".background", COLORS["card"])
         root.option_add(pattern + ".foreground", COLORS["text"])
         root.option_add(pattern + ".selectBackground", COLORS["accent"])
-        root.option_add(pattern + ".selectForeground", "#f0f4f0")
+        root.option_add(pattern + ".selectForeground", "#f6f3ff")
         root.option_add(pattern + ".font", (FONT, 10))
 
 
@@ -209,7 +221,7 @@ def _checkbox_rgba(checked: bool) -> bytes:
             inner = 0 < x < 14 and 0 < y < 14
             _paint(data, x, y, fill if inner else edge)
     if checked:
-        mark = _hex("#eef2ee")
+        mark = _hex("#f2eeff")
         _line(data, 3, 7, 6, 10, mark)
         _line(data, 6, 10, 11, 4, mark)
     return bytes(data)

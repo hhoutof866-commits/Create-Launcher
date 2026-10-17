@@ -1,8 +1,8 @@
 {
   "username": "Player",
-  "game_dir": "C:\\Users\\user\\Documents\\Проект по умолчанию\\neoforge-launcher\\.minecraft",
+  "game_dir": "C:\\Users\\user\\Documents\\Проект по умолчанию\\CreaLaunch\\.minecraft",
   "ram_mb": 6144,
-  "java_path": "",
+  "java_path": "C:\\Users\\user\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-delta\\windows\\java-runtime-delta\\bin\\java.exe",
   "jvm_args": "",
   "mc_version": "1.21.1",
   "mode": "neoforge",
@@ -11,12 +11,26 @@
   "download_workers": 8,
   "skin_model": "wide",
   "content_type": "mod",
-  "content_create_only": true,
-  "content_query": "Create",
+  "content_create_only": false,
+  "content_query": "sod",
   "enable_resource_packs": true,
   "last_world": "",
+  "share_world": true,
+  "upnp_port": 25565,
   "close_launcher_on_start": false,
   "keep_console": true,
   "width": 0,
-  "height": 0
+  "height": 0,
+  "builds": [
+    {
+      "name": "Основная",
+      "mode": "neoforge",
+      "mc_version": "1.21.1",
+      "neoforge_version": "21.1.262",
+      "ram_mb": 6144,
+      "game_dir": "C:\\Users\\user\\Documents\\Проект по умолчанию\\CreaLaunch\\.minecraft",
+      "jvm_args": ""
+    }
+  ],
+  "current_build": "Основная"
 }

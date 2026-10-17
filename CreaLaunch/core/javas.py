@@ -111,6 +111,17 @@ def candidate_homes():
                 homes.append(os.path.join(root, name))
         except OSError:
             continue
+    # рантайм официального лаунчера Minecraft: Java 21 у 1.21.1 уже установлена рядом
+    runtime_root = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), ".minecraft",
+                                "runtime")
+    platform_name = "windows" if paths.WINDOWS else ("mac-os" if paths.MACOS else "linux")
+    try:
+        for name in os.listdir(runtime_root):
+            platform_dir = os.path.join(runtime_root, name, platform_name)
+            for inner in os.listdir(platform_dir):
+                homes.append(os.path.join(platform_dir, inner))
+    except OSError:
+        pass
     # собственная папка java/ лаунчера
     try:
         for name in os.listdir(paths.java_dir()):

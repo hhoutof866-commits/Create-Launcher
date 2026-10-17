@@ -21,9 +21,15 @@ def _features(width: int = 0, height: int = 0):
 
 
 def build_command(mc_dir: str, version_id: str, java: str, ram_mb: int, username: str,
-                  jvm_extra: str = "", width: int = 0, height: int = 0, features=None):
-    """Собирает полную командную строку java для запуска версии."""
-    features = features or _features(width, height)
+                  jvm_extra: str = "", width: int = 0, height: int = 0, features=None,
+                  quick_play: str = ""):
+    """Собирает полную командную строку java для запуска версии.
+
+    quick_play — адрес сервера («26.0.0.5:51234»): игра сразу зайдёт в него.
+    Это штатный ключ Minecraft 1.21.1 `--quickPlayMultiplayer`, который включается
+    правилом is_quick_play_multiplayer (см. core/rule.py).
+    """
+    features = dict(features or _features(width, height))
     resolved = version_mod.resolve(mc_dir, version_id, features)
 
     natives_dir = os.path.join(mc_dir, "natives", resolved.id)
@@ -56,6 +62,9 @@ def build_command(mc_dir: str, version_id: str, java: str, ram_mb: int, username
         "resolution_height": str(height or 480),
         "user_properties": "{}",
     }
+    if quick_play:
+        features["is_quick_play_multiplayer"] = True
+        mapping["quickPlayMultiplayer"] = quick_play
 
     command = [java, "-Xmx%dM" % max(512, int(ram_mb)), "-Xms512M"]
     jvm_args = rule.resolve_arguments(resolved.jvm_elements, mapping, features)
@@ -80,11 +89,14 @@ def build_command(mc_dir: str, version_id: str, java: str, ram_mb: int, username
 
 
 def launch(mc_dir: str, version_id: str, java: str, ram_mb: int, username: str,
-           jvm_extra: str = "", width: int = 0, height: int = 0, log=None):
+           jvm_extra: str = "", width: int = 0, height: int = 0, log=None,
+           quick_play: str = ""):
     command, resolved = build_command(mc_dir, version_id, java, ram_mb, username,
-                                      jvm_extra, width, height)
+                                      jvm_extra, width, height, quick_play=quick_play)
     if log:
         log("Запуск: %s" % resolved.id)
+        if quick_play:
+            log("Автозаход в мир по адресу %s" % quick_play)
         log("Команда: %s" % " ".join(command))
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if WINDOWS else 0
     process = subprocess.Popen(

@@ -14,14 +14,16 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import os
 import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from core import (auth, branding, config, install, javas, launch, modrinth, mods, mojang,  # noqa: E402
-                 neoforge, options, paths, shortcut, skins, version as version_mod)
+from core import (auth, branding, config, friends, install, javas, lan, launch, modrinth, mods,  # noqa: E402
+                 mojang, neoforge, options, paths, png, servers_dat, shortcut, skins,
+                 upnp, version as version_mod)
 from core.down import DownloadCancelled, Downloader  # noqa: E402
 
 
@@ -69,6 +71,172 @@ def _downloader():
     return Downloader(workers=8, on_progress=_Progress(), on_log=_log)
 
 
+def _split_address(value: str, port: int = 0):
+    """«26.0.0.5:51234» или «26.0.0.5» + необязательный порт."""
+    try:
+        host, parsed = lan.parse_address(value)
+    except ValueError:
+        return (value or "").strip(), int(port or 0)
+    return host, int(port or parsed or 0)
+
+
+def _my_addresses():
+    items = lan.local_addresses()
+    if not items:
+        _log("Сетевые адреса не найдены — проверьте подключение")
+        return []
+    _log("Мои адреса (их называют друзьям):")
+    for item in items:
+        suffix = (" — %s" % item["name"]) if item["name"] else ""
+        _log("   %-16s%s" % (item["ip"], suffix))
+    return items
+
+
+def _server_icon() -> str:
+    """Иконка для списка серверов игры (64x64 PNG крипера, чистый base64)."""
+    try:
+        size, _height, rgba = branding.creeper_rgba(64)
+        return base64.b64encode(png.encode(size, size, rgba)).decode("ascii")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _friend_name(book, host: str, port: int) -> str:
+    for item in book.list():
+        if item["address"] == host and int(item["port"] or 0) == port:
+            return item["name"]
+    return lan.format_address(host, port)
+
+
+def _cli_lan(args) -> int:
+    _my_addresses()
+    timeout = float(args.timeout or 3.0)
+    _log("Ищу миры «открыт для сети» и объявления лаунчеров (%.1f с)…" % timeout)
+    result = lan.scan(timeout, log=_log, my_id=friends.Friends.load().me_id())
+    for message in result.get("errors", []):
+        _log(message)
+    for item in result["friends"]:
+        _log("   друг  %-16s %s  %s" % (item["nick"], lan.format_address(item["host"], item["port"]),
+                                        item.get("world", "")))
+    for item in result["worlds"]:
+        _log("   мир   %-16s %s" % (item["motd"][:40], lan.format_address(item["host"], item["port"])))
+    if not result["friends"] and not result["worlds"]:
+        _log("Никого не нашли. Друг должен открыть мир в игре («Открыть для сети»), "
+             "а вы оба — быть в одной сети (Radmin VPN / Wi-Fi).")
+    return 0
+
+
+def _cli_friends(args) -> int:
+    book = friends.Friends.load()
+    if args.add:
+        text = args.add.strip()
+        parsed = friends.parse_invite(text) or {}
+        name = (parsed.get("name") or text)[:24]
+        address = parsed.get("address", "")
+        port = int(parsed.get("port") or 0)
+        if args.addr:
+            address, port = _split_address(args.addr, args.port)
+        elif address:
+            address, port = _split_address(address, port)
+        if not address:
+            _log("Нужен адрес: --cli friends --add \"Вася 26.0.0.5:51234\" "
+                 "(или вставьте приглашение с кодом CL1.…)")
+            return 2
+        friend = book.add(name, address, port)
+        _log("Друг сохранён: %s — %s" % (friend["name"], lan.format_address(address, port)))
+    if args.remove:
+        if book.remove(args.remove):
+            _log("Друг удалён: %s" % args.remove)
+        else:
+            _log("Друг «%s» не найден" % args.remove)
+            return 1
+    items = book.list()
+    if not items:
+        _log("Список друзей пуст. Добавить: --cli friends --add \"Вася 26.0.0.5:51234\"")
+        return 0
+    _log("Мои друзья (%d):" % len(items))
+    for item in items:
+        address = lan.format_address(item["address"], item["port"]) if item["address"] else "—"
+        if args.check and item["address"]:
+            host, port = _split_address(address, item["port"])
+            address += "  " + ("доступен" if lan.probe(host, port, 1.5) else "не отвечает")
+        seen = (time.strftime("%d.%m %H:%M", time.localtime(item["last_seen"]))
+                if item["last_seen"] else "—")
+        _log("   %-16s %-26s мир: %-18s был: %s" % (item["name"], address,
+                                                     item.get("world") or "—", seen))
+    return 0
+
+
+def _cli_invite(cfg, args) -> int:
+    items = _my_addresses()
+    port = int(args.port or 0)
+    if not port:
+        _log("Укажите порт мира: --port 51234 (игра показывает его при открытии мира «для сети»)")
+        return 2
+    nick = auth.sanitize_username(cfg.get("username", "Player"))
+    world = (cfg.get("last_world") or "").strip() or "Мир %s" % nick
+    _log("")
+    _log(friends.invite_text(nick, lan.best_share_address(items), port, world))
+    return 0
+
+
+def _cli_upnp(args) -> int:
+    _log("Ищу роутер с UPnP…")
+    info = upnp.status(3.0)
+    if not info["ok"]:
+        _log("UPnP: %s%s" % (info["error"], ("  (роутер: %s)" % info["router"]) if info["router"] else ""))
+        return 1
+    _log("Роутер: %s, внешний адрес: %s" % (info["router"] or "—", info["address"]))
+    if args.world_port:
+        mapping = upnp.open_world_port(lan.primary_address(), int(args.world_port),
+                                       int(args.port or upnp.DEFAULT_EXTERNAL_PORT))
+        _log("Порт открыт: %s → %s (%s)" % (
+            lan.format_address(mapping["address"], mapping["port"]), mapping["internal"],
+            ", ".join(mapping["mapped"])))
+    else:
+        _log("Чтобы открыть порт: --cli upnp --world-port 51234")
+    return 0
+
+
+def _cli_join(cfg, args) -> int:
+    if not args.addr:
+        _log("Нужен адрес друга: --cli join --addr 26.0.0.5:51234")
+        return 2
+    host, port = _split_address(args.addr, args.port)
+    address = lan.format_address(host, port)
+    _log("Проверяю мир %s…" % address)
+    if not lan.probe(host, port, 3.0):
+        _log("Мир не отвечает. Друг должен открыть мир «для сети», и вы оба — в одной сети "
+             "(Radmin VPN / Wi-Fi).")
+        return 1
+    mc_version = cfg.get("mc_version", "1.21.1")
+    book = friends.Friends.load()
+    name = _friend_name(book, host, port)
+    try:
+        servers_dat.upsert(cfg.game_dir, name, address, icon=_server_icon())
+        _log("«%s» добавлен в список серверов игры" % name)
+    except Exception as exc:  # noqa: BLE001
+        _log("servers.dat обновить не удалось: %s" % exc)
+    downloader = _downloader()
+    java = install.ensure_java(cfg, downloader, _log)
+    neo_version = ""
+    if cfg.get("mode") == "neoforge":
+        neo_version = install.resolve_neo_version(mc_version, cfg.get("neoforge_version", ""), _log)
+    if not install.installed(cfg.game_dir, mc_version, cfg.get("mode"), neo_version,
+                             bool(cfg.get("skip_sounds"))):
+        install.install_all(cfg.game_dir, mc_version, cfg.get("mode"), neo_version, java,
+                            downloader, _log, _log, bool(cfg.get("skip_sounds")))
+    target = neoforge.profile_id(neo_version) if cfg.get("mode") == "neoforge" else mc_version
+    process, resolved = launch.launch(
+        cfg.game_dir, target, java, int(cfg.get("ram_mb", 4096)),
+        auth.sanitize_username(cfg.get("username", "Player")), cfg.get("jvm_args", ""),
+        int(cfg.get("width") or 0), int(cfg.get("height") or 0), log=_log, quick_play=address)
+    _log("Запущено: %s (pid %s) — автозаход в мир %s" % (resolved.id, process.pid, address))
+    for line in process.stdout or []:
+        print(line.rstrip(), flush=True)
+    return process.wait()
+
+
 def cli(args) -> int:
     cfg = config.Config.load()
     if args.java:
@@ -87,6 +255,21 @@ def cli(args) -> int:
         cfg["skip_sounds"] = True
 
     mc_version = cfg.get("mc_version", "1.21.1")
+
+    if args.cli == "lan":
+        return _cli_lan(args)
+
+    if args.cli == "friends":
+        return _cli_friends(args)
+
+    if args.cli == "invite":
+        return _cli_invite(cfg, args)
+
+    if args.cli == "upnp":
+        return _cli_upnp(args)
+
+    if args.cli == "join":
+        return _cli_join(cfg, args)
 
     if args.cli == "java":
         found = javas.find_all(cfg.get("java_path", ""))
@@ -122,7 +305,8 @@ def cli(args) -> int:
         neo_version = ""
         if cfg.get("mode") == "neoforge":
             neo_version = install.resolve_neo_version(mc_version, cfg.get("neoforge_version", ""), _log)
-        if not install.installed(cfg.game_dir, mc_version, cfg.get("mode"), neo_version):
+        if not install.installed(cfg.game_dir, mc_version, cfg.get("mode"), neo_version,
+                                 bool(cfg.get("skip_sounds"))):
             install.install_all(cfg.game_dir, mc_version, cfg.get("mode"), neo_version, java,
                                 downloader, _log, _log, bool(cfg.get("skip_sounds")))
         target = neoforge.profile_id(neo_version) if cfg.get("mode") == "neoforge" else mc_version
@@ -222,7 +406,8 @@ def cli(args) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Лаунчер Minecraft 1.21.1 + NeoForge")
     parser.add_argument("--cli", choices=["java", "versions", "setup", "launch", "check",
-                                          "content", "skin", "shortcut"],
+                                          "content", "skin", "shortcut", "lan", "friends",
+                                          "invite", "join", "upnp"],
                         help="работать без окна")
     parser.add_argument("--game-dir", help="папка игры")
     parser.add_argument("--mode", choices=["neoforge", "vanilla"])
@@ -244,6 +429,18 @@ def main() -> int:
                         help="для команды content: снять фильтр «только Create»")
     parser.add_argument("--world", default="", help="мир для датапаков")
     parser.add_argument("--limit", type=int, default=15, help="сколько результатов показать")
+    parser.add_argument("--add", metavar="ТЕКСТ",
+                        help="для команды friends: добавить друга («Имя 26.0.0.5:51234» или "
+                             "приглашение с кодом CL1.…)")
+    parser.add_argument("--remove", metavar="ИМЯ", help="для команды friends: удалить друга")
+    parser.add_argument("--check", action="store_true",
+                        help="для команды friends: проверить, отвечают ли адреса")
+    parser.add_argument("--addr", help="адрес мира друга (26.0.0.5:51234)")
+    parser.add_argument("--port", type=int, default=0,
+                        help="порт: мира для invite, внешний для upnp")
+    parser.add_argument("--world-port", type=int, default=0,
+                        help="для upnp: порт мира, который пробрасываем")
+    parser.add_argument("--timeout", type=float, default=3.0, help="сколько искать в сети, секунд")
     args = parser.parse_args()
 
     if args.cli:

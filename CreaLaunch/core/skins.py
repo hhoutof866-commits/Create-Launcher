@@ -217,12 +217,21 @@ def demo_skin() -> bytes:
                 index = ((ry + y) * 64 + rx + x) * 4
                 data[index:index + 4] = bytes(color)
 
+    def pixel(region: str, x: int, y: int, color) -> None:
+        rx, ry, _rw, _rh = REGIONS[region]
+        index = ((ry + y) * 64 + rx + x) * 4
+        data[index:index + 4] = bytes(color[:3]) + b"\xff"
+
     skin_tone = (198, 140, 102, 255)
     hair = (58, 38, 24, 255)
     shirt = (0, 158, 166, 255)
     pants = (52, 62, 140, 255)
     fill("head", skin_tone)
     fill("head_overlay", hair, 0, 2)
+    pixel("head", 2, 3, (70, 58, 48))          # глаза и рот — чтобы лицо было узнаваемым
+    pixel("head", 5, 3, (70, 58, 48))
+    pixel("head", 3, 5, (140, 92, 72))
+    pixel("head", 4, 5, (140, 92, 72))
     for region in ("body", "right_arm", "left_arm"):
         fill(region, shirt)
     for region in ("right_leg", "left_leg"):
